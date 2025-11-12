@@ -1,0 +1,42 @@
+---
+# Production environment variables
+
+environment: prod
+
+# Ports
+user_api_port: 8080
+frontend_port: 80
+
+# Database (use Ansible Vault for real passwords)
+database_url: postgresql://produser:VAULT_ENCRYPTED_PASSWORD@prod-db-cluster:5432/users_prod
+
+# API settings
+api_base_url: https://api.example.com
+
+# Security (MUST be vault encrypted)
+secret_key: VAULT_ENCRYPTED_SECRET_KEY
+
+# Logging
+log_level: WARNING
+
+# Resource limits
+memory_limit: 1G
+cpu_quota: 200%
+
+# Data paths
+data_path: /var/data/processor
+
+# Service settings
+flask_env: production
+debug_mode: false
+
+# CORS
+cors_origins: "https://example.com,https://www.example.com"
+
+# High availability settings
+health_check_interval: 15s
+restart_max_retries: 5
+
+# Backup settings
+backup_enabled: true
+backup_retention_days: 30

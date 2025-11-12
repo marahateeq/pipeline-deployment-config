@@ -1,0 +1,42 @@
+# Global Docker Compose Configuration
+# This file defines common settings for all Docker services
+
+version: '3.8'
+
+# Global networks available to all services
+networks:
+  internal:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
+
+  external:
+    driver: bridge
+
+# Global volumes for shared data
+volumes:
+  shared-data:
+    driver: local
+
+  logs:
+    driver: local
+
+# Default logging configuration
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+    compress: "true"
+
+# Default restart policy
+x-restart-policy: &default-restart
+  restart: unless-stopped
+
+# Default health check settings
+x-healthcheck: &default-healthcheck
+  interval: 30s
+  timeout: 10s
+  retries: 3
+  start_period: 40s

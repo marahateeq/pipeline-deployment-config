@@ -1,0 +1,34 @@
+---
+# QA environment variables
+
+environment: qa
+
+# Ports
+user_api_port: 8080
+frontend_port: 80
+
+# Database
+database_url: postgresql://qauser:qapass@qa-db-server:5432/users_qa
+
+# API settings
+api_base_url: http://qa-server-01:8080
+
+# Security (use vault for sensitive data)
+secret_key: qa-secret-key-change-me
+
+# Logging
+log_level: INFO
+
+# Resource limits
+memory_limit: 512M
+cpu_quota: 75%
+
+# Data paths
+data_path: /var/data/processor
+
+# Service settings
+flask_env: production
+debug_mode: false
+
+# CORS
+cors_origins: "http://qa-server-01,http://qa-server-02"

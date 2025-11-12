@@ -1,0 +1,47 @@
+---
+# Common variables shared across all environments
+
+# Docker registry
+docker_registry: localhost:5000
+
+# Service user
+service_user: serviceuser
+service_group: serviceuser
+
+# Logging
+log_level: INFO
+log_format: json
+
+# Resource limits
+default_memory_limit: 512M
+default_cpu_quota: 50%
+
+# Health check settings
+health_check_interval: 30s
+health_check_timeout: 10s
+health_check_retries: 3
+
+# Network settings
+network_mode: bridge
+dns_servers:
+  - 8.8.8.8
+  - 8.8.4.4
+
+# Restart policies
+restart_policy: unless-stopped
+
+# Version defaults
+default_version: latest
+
+# Paths
+services_base_path: /opt/services
+data_base_path: /var/data
+logs_base_path: /var/log
+
+# Flask settings
+flask_env: production
+cors_origins: "*"
+
+# Processing settings
+processing_interval: 60
+batch_size: 100
