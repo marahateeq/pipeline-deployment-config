@@ -41,6 +41,7 @@ pipeline {
         PIPELINE_DEPLOYMENT_REPO_URL = "https://github.com/marahateeq/pipeline-deployment.git"
         PIPELINE_DEPLOYMENT_BRANCH = "*/main"
         PIPELINE_DEPLOYMENT_CREDENTIALS = "4b9370cd-c3b6-4fbe-9a73-73f971061ad1"
+        ANSIBLE_VENV = "${WORKSPACE}/.ansible_venv"
     }
 
     stages {
@@ -75,6 +76,20 @@ pipeline {
                             ]]
                         ])
                     }
+                }
+            }
+        }
+
+        stage('Setup Ansible') {
+            steps {
+                script {
+                    sh """
+                        set -e
+                        python3 -m venv "${ANSIBLE_VENV}"
+                        . "${ANSIBLE_VENV}/bin/activate"
+                        pip install --upgrade pip
+                        pip install --upgrade ansible
+                    """
                 }
             }
         }
@@ -146,7 +161,7 @@ pipeline {
 
                             sh """
                                 cd pipeline-deployment
-                                ansible-playbook deploy-services.yml \
+                                "${ANSIBLE_VENV}/bin/ansible-playbook" deploy-services.yml \
                                     -i ../deployment-config/inventory.ini \
                                     -e "env=${params.ENVIRONMENT}" \
                                     -e "service_name=${service}" \
@@ -178,7 +193,7 @@ pipeline {
 
                             sh """
                                 cd pipeline-deployment
-                                ansible-playbook deploy-system-service.yml \
+                                "${ANSIBLE_VENV}/bin/ansible-playbook" deploy-system-service.yml \
                                     -i ../deployment-config/inventory.ini \
                                     -e "env=${params.ENVIRONMENT}" \
                                     -e "service_name=${service}" \
@@ -197,7 +212,7 @@ pipeline {
 
                     sh """
                         cd pipeline-deployment
-                        ansible ${params.ENVIRONMENT} \
+                        "${ANSIBLE_VENV}/bin/ansible" ${params.ENVIRONMENT} \
                             -i ../deployment-config/inventory.ini \
                             -m shell \
                             -a "docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}' || systemctl list-units --type=service --state=running | grep -E '(user-api|product-frontend|data-processor)'" \
