@@ -85,11 +85,15 @@ pipeline {
                 script {
                     sh """
                         set -e
-                        python3 -m venv "${ANSIBLE_VENV}"
-                        . "${ANSIBLE_VENV}/bin/activate"
-                        pip install --upgrade pip
-                        pip install --upgrade ansible
+                        export PATH="/var/jenkins_home/.local/bin:\$PATH"
+                        if ! command -v pip3 >/dev/null 2>&1; then
+                            python3 -m ensurepip --upgrade
+                            python3 -m pip install --user pip
+                        fi
+                        python3 -m pip install --user --upgrade ansible
                     """
+                    env.ANSIBLE_BIN = "/var/jenkins_home/.local/bin/ansible"
+                    env.ANSIBLE_PLAYBOOK_BIN = "/var/jenkins_home/.local/bin/ansible-playbook"
                 }
             }
         }
@@ -161,7 +165,7 @@ pipeline {
 
                             sh """
                                 cd pipeline-deployment
-                                "${ANSIBLE_VENV}/bin/ansible-playbook" deploy-services.yml \
+                                "${ANSIBLE_PLAYBOOK_BIN}" deploy-services.yml \
                                     -i ../deployment-config/inventory.ini \
                                     -e "env=${params.ENVIRONMENT}" \
                                     -e "service_name=${service}" \
@@ -193,7 +197,7 @@ pipeline {
 
                             sh """
                                 cd pipeline-deployment
-                                "${ANSIBLE_VENV}/bin/ansible-playbook" deploy-system-service.yml \
+                                "${ANSIBLE_PLAYBOOK_BIN}" deploy-system-service.yml \
                                     -i ../deployment-config/inventory.ini \
                                     -e "env=${params.ENVIRONMENT}" \
                                     -e "service_name=${service}" \
@@ -212,7 +216,7 @@ pipeline {
 
                     sh """
                         cd pipeline-deployment
-                        "${ANSIBLE_VENV}/bin/ansible" ${params.ENVIRONMENT} \
+                        "${ANSIBLE_BIN}" ${params.ENVIRONMENT} \
                             -i ../deployment-config/inventory.ini \
                             -m shell \
                             -a "docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}' || systemctl list-units --type=service --state=running | grep -E '(user-api|product-frontend|data-processor)'" \
