@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  user-api:
+    image: "{{ docker_registry | default('localhost:5000') }}/user-api:{{ version | default('latest') }}"
+    container_name: user-api
+    ports:
+      - "{{ user_api_port | default('8080') }}:8080"
+    restart: unless-stopped
+
+    environment:
+      - FLASK_ENV={{ flask_env | default('production') }}
+      - LOG_LEVEL={{ log_level | default('INFO') }}
+      - DATABASE_URL={{ database_url | default('sqlite:///users.db') }}
+      - SECRET_KEY={{ secret_key | default('change-me-in-production') }}
+      - CORS_ORIGINS={{ cors_origins | default('*') }}
+
+    volumes:
+      - user-api-data:/app/data
+      - ./logs:/app/logs
+
+    networks:
+      - internal
+
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    labels:
+      - "service.name=user-api"
+      - "service.environment={{ environment | default('dev') }}"
+      - "service.version={{ version | default('latest') }}"
+
+volumes:
+  user-api-data:
+    driver: local
+
+networks:
+  internal:
+    external: false

@@ -1,0 +1,261 @@
+// Jenkins Pipeline for Automated Service Deployment
+// Author: System Design Team
+// Description: Detects changed services and deploys them using Ansible
+// Usage: Triggered by Git push or manually with parameters
+
+pipeline {
+    agent any
+
+    options {
+        disableConcurrentBuilds()
+        timeout(time: 30, unit: 'MINUTES')
+    }
+
+    parameters {
+        choice(
+            name: 'ENVIRONMENT',
+            choices: ['dev', 'qa', 'prod'],
+            description: 'Target environment for deployment'
+        )
+        string(
+            name: 'SERVICE_NAME',
+            defaultValue: '',
+            description: 'Specific service to deploy (leave empty to auto-detect from Git changes)'
+        )
+        choice(
+            name: 'SERVICE_TYPE',
+            choices: ['docker', 'systemd', 'auto'],
+            description: 'Type of service to deploy'
+        )
+        booleanParam(
+            name: 'FORCE_DEPLOY',
+            defaultValue: false,
+            description: 'Force deployment even if no changes detected'
+        )
+    }
+
+    environment {
+        ANSIBLE_CONFIG = "${WORKSPACE}/deployment-config/ansible.cfg"
+        INVENTORY_FILE = "${WORKSPACE}/deployment-config/inventory.ini"
+        DEPLOYMENT_REPO = "pipeline-deployment"
+        SUDO_PASS = credentials('ansible_sudo_password')
+    }
+
+    stages {
+        stage('Initialize') {
+            steps {
+                script {
+                    echo """
+                    ========================================
+                    Deployment Pipeline Started
+                    ========================================
+                    Environment: ${params.ENVIRONMENT}
+                    Service: ${params.SERVICE_NAME ?: 'Auto-detect'}
+                    Type: ${params.SERVICE_TYPE}
+                    Force Deploy: ${params.FORCE_DEPLOY}
+                    ========================================
+                    """
+
+                    // Clean workspace
+                    deleteDir()
+
+                    // Checkout deployment-config repository
+                    checkout scm
+
+                    // Clone pipeline-deployment repository
+                    sh """
+                        git clone ../pipeline-deployment || echo "Already exists"
+                    """
+                }
+            }
+        }
+
+        stage('Detect Changes') {
+            when {
+                expression { params.SERVICE_NAME == '' && !params.FORCE_DEPLOY }
+            }
+            steps {
+                script {
+                    echo "Detecting changed services from Git..."
+
+                    def changedServices = sh(
+                        script: """
+                            git diff --name-only HEAD~1 HEAD 2>/dev/null | \
+                            grep '^services/' | \
+                            awk -F/ 'NF >= 2 { print \$2 }' | \
+                            sort -u || echo ""
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    def changedSystemServices = sh(
+                        script: """
+                            git diff --name-only HEAD~1 HEAD 2>/dev/null | \
+                            grep '^system-services/' | \
+                            awk -F/ 'NF >= 2 { print \$2 }' | \
+                            sort -u || echo ""
+                        """,
+                        returnStdout: true
+                    ).trim()
+
+                    if (changedServices) {
+                        env.CHANGED_DOCKER_SERVICES = changedServices.split('\n').join(',')
+                        echo "Changed Docker services: ${env.CHANGED_DOCKER_SERVICES}"
+                    }
+
+                    if (changedSystemServices) {
+                        env.CHANGED_SYSTEM_SERVICES = changedSystemServices.split('\n').join(',')
+                        echo "Changed system services: ${env.CHANGED_SYSTEM_SERVICES}"
+                    }
+
+                    if (!changedServices && !changedSystemServices) {
+                        echo "⚠️ No service changes detected. Skipping deployment."
+                        currentBuild.result = 'SUCCESS'
+                        error("No changes to deploy")
+                    }
+                }
+            }
+        }
+
+        stage('Deploy Docker Services') {
+            when {
+                expression {
+                    (params.SERVICE_TYPE == 'docker' || params.SERVICE_TYPE == 'auto') &&
+                    (params.SERVICE_NAME != '' || env.CHANGED_DOCKER_SERVICES)
+                }
+            }
+            steps {
+                script {
+                    def servicesToDeploy = params.SERVICE_NAME ?: env.CHANGED_DOCKER_SERVICES
+
+                    servicesToDeploy.split(',').each { service ->
+                        service = service.trim()
+                        if (service) {
+                            echo "========================================="
+                            echo "Deploying Docker Service: ${service}"
+                            echo "========================================="
+
+                            sh """
+                                cd pipeline-deployment
+                                ansible-playbook deploy-services.yml \
+                                    -i ../deployment-config/inventory.ini \
+                                    -e "env=${params.ENVIRONMENT}" \
+                                    -e "service_name=${service}" \
+                                    -e "ansible_become_pass=${env.SUDO_PASS}" \
+                                    -v
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Deploy System Services') {
+            when {
+                expression {
+                    (params.SERVICE_TYPE == 'systemd' || params.SERVICE_TYPE == 'auto') &&
+                    (params.SERVICE_NAME != '' || env.CHANGED_SYSTEM_SERVICES)
+                }
+            }
+            steps {
+                script {
+                    def servicesToDeploy = params.SERVICE_NAME ?: env.CHANGED_SYSTEM_SERVICES
+
+                    servicesToDeploy.split(',').each { service ->
+                        service = service.trim()
+                        if (service) {
+                            echo "========================================="
+                            echo "Deploying System Service: ${service}"
+                            echo "========================================="
+
+                            sh """
+                                cd pipeline-deployment
+                                ansible-playbook deploy-system-service.yml \
+                                    -i ../deployment-config/inventory.ini \
+                                    -e "env=${params.ENVIRONMENT}" \
+                                    -e "service_name=${service}" \
+                                    -e "ansible_become_pass=${env.SUDO_PASS}" \
+                                    -v
+                            """
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Verify Deployments') {
+            steps {
+                script {
+                    echo "Verifying deployed services..."
+
+                    sh """
+                        cd pipeline-deployment
+                        ansible ${params.ENVIRONMENT} \
+                            -i ../deployment-config/inventory.ini \
+                            -m shell \
+                            -a "docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}' || systemctl list-units --type=service --state=running | grep -E '(user-api|product-frontend|data-processor)'" \
+                            -e "ansible_become_pass=${env.SUDO_PASS}" \
+                            --become
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo """
+            ========================================
+            ✅ Deployment Successful
+            ========================================
+            Environment: ${params.ENVIRONMENT}
+            Services Deployed: ${params.SERVICE_NAME ?: 'Auto-detected services'}
+            ========================================
+            """
+
+            emailext(
+                subject: "✅ Deployment Success: ${params.ENVIRONMENT}",
+                body: """
+                <h2>Deployment Completed Successfully</h2>
+                <ul>
+                    <li><b>Environment:</b> ${params.ENVIRONMENT}</li>
+                    <li><b>Services:</b> ${params.SERVICE_NAME ?: 'Auto-detected'}</li>
+                    <li><b>Build:</b> ${env.BUILD_URL}</li>
+                </ul>
+                """,
+                mimeType: 'text/html',
+                to: 'dev-team@example.com'
+            )
+        }
+
+        failure {
+            echo """
+            ========================================
+            ❌ Deployment Failed
+            ========================================
+            Check the console output for details
+            ========================================
+            """
+
+            emailext(
+                subject: "❌ Deployment Failed: ${params.ENVIRONMENT}",
+                body: """
+                <h2>Deployment Failed</h2>
+                <ul>
+                    <li><b>Environment:</b> ${params.ENVIRONMENT}</li>
+                    <li><b>Service:</b> ${params.SERVICE_NAME}</li>
+                    <li><b>Build:</b> ${env.BUILD_URL}</li>
+                </ul>
+                <p>Please check the console output for details.</p>
+                """,
+                mimeType: 'text/html',
+                to: 'dev-team@example.com',
+                attachLog: true
+            )
+        }
+
+        always {
+            cleanWs()
+        }
+    }
+}
