@@ -290,6 +290,8 @@ ssh-keygen -t rsa -b 4096 -f ~/.ssh/deployment_key
 ansible_ssh_private_key_file=~/.ssh/deployment_key
 ```
 
+**Jenkins usage**: the shared `inventory.ini` already points to `/var/jenkins_home/.ssh/id_rsa`, so the Jenkins agent automatically uses the key that lives on the controller (`jenkins` user home). Make sure that private key exists, has the correct permissions, and contains access to the dev hosts.
+
 ## Monitoring
 
 ### Check Service Status
