@@ -38,7 +38,6 @@ pipeline {
         ANSIBLE_CONFIG = "${WORKSPACE}/deployment-config/ansible.cfg"
         INVENTORY_FILE = "${WORKSPACE}/deployment-config/inventory.ini"
         DEPLOYMENT_REPO = "pipeline-deployment"
-        SUDO_PASS = credentials('ansible_sudo_password')
     }
 
     stages {
@@ -141,7 +140,6 @@ pipeline {
                                     -i ../deployment-config/inventory.ini \
                                     -e "env=${params.ENVIRONMENT}" \
                                     -e "service_name=${service}" \
-                                    -e "ansible_become_pass=${env.SUDO_PASS}" \
                                     -v
                             """
                         }
@@ -174,7 +172,6 @@ pipeline {
                                     -i ../deployment-config/inventory.ini \
                                     -e "env=${params.ENVIRONMENT}" \
                                     -e "service_name=${service}" \
-                                    -e "ansible_become_pass=${env.SUDO_PASS}" \
                                     -v
                             """
                         }
@@ -194,8 +191,7 @@ pipeline {
                             -i ../deployment-config/inventory.ini \
                             -m shell \
                             -a "docker ps --format 'table {{.Names}}\\t{{.Status}}\\t{{.Ports}}' || systemctl list-units --type=service --state=running | grep -E '(user-api|product-frontend|data-processor)'" \
-                            -e "ansible_become_pass=${env.SUDO_PASS}" \
-                            --become
+                            -v
                     """
                 }
             }
