@@ -249,7 +249,7 @@ pipeline {
                 </ul>
                 """,
                 mimeType: 'text/html',
-                to: 'dev-team@example.com'
+                to: 'yuseffathi@gmail.con,marahateeq@gmail.com'
             )
         }
 
@@ -274,7 +274,7 @@ pipeline {
                 <p>Please check the console output for details.</p>
                 """,
                 mimeType: 'text/html',
-                to: 'dev-team@example.com',
+                to: 'yuseffathi@gmail.con,marahateeq@gmail.com',
                 attachLog: true
             )
         }
