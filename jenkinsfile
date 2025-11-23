@@ -38,6 +38,9 @@ pipeline {
         ANSIBLE_CONFIG = "${WORKSPACE}/deployment-config/ansible.cfg"
         INVENTORY_FILE = "${WORKSPACE}/deployment-config/inventory.ini"
         DEPLOYMENT_REPO = "pipeline-deployment"
+        PIPELINE_DEPLOYMENT_REPO_URL = "https://github.com/marahateeq/pipeline-deployment.git"
+        PIPELINE_DEPLOYMENT_BRANCH = "*/main"
+        PIPELINE_DEPLOYMENT_CREDENTIALS = "4b9370cd-c3b6-4fbe-9a73-73f971061ad1"
     }
 
     stages {
@@ -62,9 +65,16 @@ pipeline {
                     checkout scm
 
                     // Clone pipeline-deployment repository
-                    sh """
-                        git clone ../pipeline-deployment || echo "Already exists"
-                    """
+                    dir("${env.DEPLOYMENT_REPO}") {
+                        checkout([
+                            $class: 'GitSCM',
+                            branches: [[name: "${env.PIPELINE_DEPLOYMENT_BRANCH}"]],
+                            userRemoteConfigs: [[
+                                url: "${env.PIPELINE_DEPLOYMENT_REPO_URL}",
+                                credentialsId: "${env.PIPELINE_DEPLOYMENT_CREDENTIALS}"
+                            ]]
+                        ])
+                    }
                 }
             }
         }
