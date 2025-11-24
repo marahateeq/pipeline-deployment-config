@@ -86,11 +86,23 @@ pipeline {
                     sh """
                         set -e
                         export PATH="/var/jenkins_home/.local/bin:\$PATH"
-                        if ! command -v pip3 >/dev/null 2>&1; then
-                            python3 -m ensurepip --upgrade
-                            python3 -m pip install --user pip
+
+                        # Check if ansible is already installed
+                        if command -v ansible-playbook >/dev/null 2>&1; then
+                            echo "✅ Ansible already installed: \$(ansible --version | head -n1)"
+                        else
+                            echo "Installing Ansible..."
+
+                            # Try to get pip3, install if needed
+                            if ! command -v pip3 >/dev/null 2>&1; then
+                                echo "Installing pip3..."
+                                curl -sS https://bootstrap.pypa.io/get-pip.py | python3 - --user
+                            fi
+
+                            # Install ansible
+                            python3 -m pip install --user --upgrade ansible
+                            echo "✅ Ansible installed: \$(ansible --version | head -n1)"
                         fi
-                        python3 -m pip install --user --upgrade ansible
                     """
                     env.ANSIBLE_BIN = "/var/jenkins_home/.local/bin/ansible"
                     env.ANSIBLE_PLAYBOOK_BIN = "/var/jenkins_home/.local/bin/ansible-playbook"
