@@ -93,14 +93,19 @@ pipeline {
                         else
                             echo "Installing Ansible..."
 
-                            # Try to get pip3, install if needed
+                            # Download and install pip without distutils dependency
                             if ! command -v pip3 >/dev/null 2>&1; then
                                 echo "Installing pip3..."
-                                curl -sS https://bootstrap.pypa.io/get-pip.py | python3 - --user
+                                curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
+                                python3 /tmp/get-pip.py --user --no-warn-script-location
+                                rm /tmp/get-pip.py
                             fi
 
+                            # Ensure pip is in PATH
+                            export PATH="/var/jenkins_home/.local/bin:\$PATH"
+
                             # Install ansible
-                            python3 -m pip install --user --upgrade ansible
+                            pip3 install --user --upgrade ansible
                             echo "✅ Ansible installed: \$(ansible --version | head -n1)"
                         fi
                     """
@@ -286,7 +291,7 @@ pipeline {
                 <p>Please check the console output for details.</p>
                 """,
                 mimeType: 'text/html',
-                to: 'yuseffathi@gmail.con,marahateeq@gmail.com',
+                to: 'yuseffathi@gmail.com,marahateeq@gmail.com',
                 attachLog: true
             )
         }
