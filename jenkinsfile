@@ -80,37 +80,24 @@ pipeline {
             }
         }
 
-        stage('Setup Ansible') {
+        stage('Verify Ansible') {
             steps {
                 script {
                     sh """
                         set -e
-                        export PATH="/var/jenkins_home/.local/bin:\$PATH"
 
-                        # Check if ansible is already installed
-                        if command -v ansible-playbook >/dev/null 2>&1; then
-                            echo "✅ Ansible already installed: \$(ansible --version | head -n1)"
-                        else
-                            echo "Installing Ansible..."
-
-                            # Download and install pip without distutils dependency
-                            if ! command -v pip3 >/dev/null 2>&1; then
-                                echo "Installing pip3..."
-                                curl -sS https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py
-                                python3 /tmp/get-pip.py --user --no-warn-script-location
-                                rm /tmp/get-pip.py
-                            fi
-
-                            # Ensure pip is in PATH
-                            export PATH="/var/jenkins_home/.local/bin:\$PATH"
-
-                            # Install ansible
-                            pip3 install --user --upgrade ansible
-                            echo "✅ Ansible installed: \$(ansible --version | head -n1)"
+                        # Verify ansible is available
+                        if ! command -v ansible-playbook >/dev/null 2>&1; then
+                            echo "❌ ERROR: Ansible is not installed on this Jenkins agent"
+                            echo "Please install Ansible on the Jenkins agent before running this pipeline"
+                            exit 1
                         fi
+
+                        echo "✅ Ansible found: \$(ansible --version | head -n1)"
                     """
-                    env.ANSIBLE_BIN = "/var/jenkins_home/.local/bin/ansible"
-                    env.ANSIBLE_PLAYBOOK_BIN = "/var/jenkins_home/.local/bin/ansible-playbook"
+
+                    env.ANSIBLE_BIN = "ansible"
+                    env.ANSIBLE_PLAYBOOK_BIN = "ansible-playbook"
                 }
             }
         }
