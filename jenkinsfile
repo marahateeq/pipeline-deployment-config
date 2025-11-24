@@ -249,7 +249,7 @@ pipeline {
                 </ul>
                 """,
                 mimeType: 'text/html',
-                to: 'yuseffathi@gmail.con,marahateeq@gmail.com'
+                to: 'yuseffathi@gmail.com,marahateeq@gmail.com'
             )
         }
 
